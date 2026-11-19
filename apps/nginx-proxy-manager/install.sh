@@ -293,9 +293,10 @@ step_start "Enviroment" "Setting up" "Setup"
 
 step_start "Frontend" "Building" "Built"
   cd ./frontend
+  ln -sfn src src/locale/lang
   export NODE_ENV=development
   yarn cache clean --silent --force >$__OUTPUT
-  yarn install --silent --network-timeout=30000 >$__OUTPUT 
+  yarn install --silent --network-timeout=30000 >$__OUTPUT
   yarn build
   cp -r dist/* /app/frontend
   cp -r app-images/* /app/frontend/images
