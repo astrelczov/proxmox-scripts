@@ -96,7 +96,7 @@ step_start "Python"
   fi
 
   # Remove potential conflicting depenedencies
-  pkg_del *3-pip *3-cffi *3-cryptography *3-tldextract *3-distutils *3-venv
+  pkg_del *3-cffi *3-cryptography *3-tldextract *3-distutils *3-venv
 
   # Install python depenedencies
   pkg_add python3
