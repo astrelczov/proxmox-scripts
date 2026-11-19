@@ -293,11 +293,91 @@ step_start "Enviroment" "Setting up" "Setup"
 
 step_start "Frontend" "Building" "Built"
   cd ./frontend
-  ln -sfn src src/locale/lang
+
+  # src/locale/src содержит исходники переводов:
+  # { "message-id": { "defaultMessage": "..." } }
+  #
+  # src/locale/lang должен содержать скомпилированные сообщения:
+  # { "message-id": "..." }
+
+  rm -rf src/locale/lang
+  mkdir -p src/locale/lang
+
+  node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+
+const sourceDir = path.resolve('src/locale/src');
+const outputDir = path.resolve('src/locale/lang');
+
+if (!fs.existsSync(sourceDir)) {
+  console.error(`Locale source directory does not exist: ${sourceDir}`);
+  process.exit(1);
+}
+
+fs.mkdirSync(outputDir, { recursive: true });
+
+for (const file of fs.readdirSync(sourceDir)) {
+  if (!file.endsWith('.json')) {
+    continue;
+  }
+
+  const sourceFile = path.join(sourceDir, file);
+  const destinationFile = path.join(outputDir, file);
+
+  const source = JSON.parse(fs.readFileSync(sourceFile, 'utf8'));
+  const messages = {};
+
+  for (const [messageId, value] of Object.entries(source)) {
+    /*
+     * Исходный формат:
+     * "some-key": {
+     *   "defaultMessage": "Some text",
+     *   "description": "..."
+     * }
+     *
+     * Формат, требуемый react-intl:
+     * "some-key": "Some text"
+     */
+    if (
+      value &&
+      typeof value === 'object' &&
+      typeof value.defaultMessage === 'string'
+    ) {
+      messages[messageId] = value.defaultMessage;
+    } else if (typeof value === 'string') {
+      messages[messageId] = value;
+    } else {
+      console.error(
+        `Invalid locale entry in ${file}: ${messageId}. ` +
+        `Expected string or object with defaultMessage.`
+      );
+      process.exit(1);
+    }
+  }
+
+  fs.writeFileSync(
+    destinationFile,
+    JSON.stringify(messages, null, 2) + '\n',
+    'utf8'
+  );
+
+  console.log(`Generated ${destinationFile}`);
+}
+NODE
+
+  # Проверка до начала долгой yarn-сборки
+  test -f src/locale/lang/en.json || {
+    echo "ERROR: src/locale/lang/en.json was not generated"
+    exit 1
+  }
+
   export NODE_ENV=development
-  yarn cache clean --silent --force >$__OUTPUT
-  yarn install --silent --network-timeout=30000 >$__OUTPUT
+
+  yarn cache clean --silent --force >"$__OUTPUT"
+  yarn install --silent --network-timeout=30000 >"$__OUTPUT"
   yarn build
+
   cp -r dist/* /app/frontend
   cp -r app-images/* /app/frontend/images
 
